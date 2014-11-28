@@ -46,14 +46,18 @@ class BalanceMgr():
 
     """
     
-    def __init__(self, paxosNode):
+    def __init__(self, pid):
         """ Initiate a balance manager. """
-        self._paxosNode = node
+        self._pid = pid
+        self._paxosNode = None
         self._logmgr = LogMgr()
 
     # -----
     # Public functions
     # -----
+    def setPaxosNode(self, node):
+        self._paxosNode = node
+
     def deposit(self, val):
         """ Increase balance by val . It's a blocking function. 
         Return: SUCCESS/FAIL
@@ -70,7 +74,7 @@ class BalanceMgr():
 
     def getBalance(self):
         """ Return current balance amount. """
-        pass
+        return 0
 
     def getLogItem(self, idx):
         """ Return log item at index 'idx'. """

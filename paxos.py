@@ -50,14 +50,16 @@ class PaxosNode():
     The function 'processConsensusFunc' is guaranteed to be called only once per consensus run.
 
     """
-    def __init__(self, pid, processConsensusFunc):
+    def __init__(self, pid, processConsensusFunc, readLogFunc):
         """ Initiate a Paxos node. """
         # Unique process ID
         self._pid = pid
         # An interface to receive and send data
-        self._messenger = Messenger(self, pid)
+        self._messenger = Messenger(self)
         # Hook function executed just after reaching a consensus
         self._processConsensusFunc = processConsensusFunc
+        # External function that return log content. readLogFunc(idx) -> item
+        self._readLogFunc = readLogFunc
         # History that saves past consensus value
         self._history = []
         # Member variables for consensus algorithm

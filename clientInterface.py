@@ -3,21 +3,28 @@ import string, sys
 
 class CLI(cmd.Cmd):
 
-    def __init__(self, balanceMgr, paxosNode):
+    def __init__(self, balanceMgr):
         cmd.Cmd.__init__(self)
         self.prompt = '> '
-        self.balanceMgr = balanceMgr
-        self.paxosNode = paxosNode
-
-    def processMgrReturn(self, mgrReturn):
-        """ Hook method to process return value from balanceMgr. """
-        pass
+        self._balanceMgr = balanceMgr
 
     # ===================
     # The following are valid commands
     # ===================
     def do_deposit(self, arg):
+        try:
+            val = int(arg)
+        except ValueError:
+            self.stdout.write("Amount must be an interger. Received: {0}\n".format(arg))
+            return
+        
+        if(val < 0):
+            self.stdout.write("Amount must be non-negative. Received: {0}\n".format(arg))
+            return
+        
+        self._balanceMgr.deposit(val)
         print "Depositing ",arg, "!"
+
 
     def help_deposit(self):
         print "syntax: deposit [amount]",
@@ -25,6 +32,17 @@ class CLI(cmd.Cmd):
 
     # -------------------
     def do_withdraw(self, arg):
+        try:
+            val = int(arg)
+        except ValueError:
+            self.stdout.write("Amount must be an interger. Received: {0}\n".format(arg))
+            return
+        
+        if(val < 0):
+            self.stdout.write("Amount must be non-negative. Received: {0}\n".format(arg))
+            return
+        
+        self._balanceMgr.withdraw(val)
         print "Withdraw ", arg, "!"
 
     def help_withdraw(self):
@@ -33,7 +51,8 @@ class CLI(cmd.Cmd):
 
     # -------------------
     def do_balance(self, arg):
-        print "Balance: ", self.amount, "!"
+        balance = self._balanceMgr.getBalance()
+        print "Balance: ", balance, "!"
 
     def help_balance(self):
         print "syntax: balance",
