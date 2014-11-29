@@ -12,9 +12,12 @@ class BalanceSystem():
         self.paxosNode = paxos.PaxosNode(self.pid, 
                             self.balanceMgr.processConsensus,
                             self.balanceMgr.getLogItem)
+        self.balanceMgr.setPaxosNode(self.paxosNode)
+
+        address = ("localhost", 9999)
+        self.clientTCP = clientInterface.ClientTCPServer(self.balanceMgr, address)
         self.cli = clientInterface.CLI(self.balanceMgr)
 
-        self.balanceMgr.setPaxosNode(self.paxosNode)
 
 
     def determinePid(self):
@@ -23,6 +26,7 @@ class BalanceSystem():
 
     def run(self):
         """ Start balance system. """
+        self.clientTCP.start()
         self.cli.cmdloop()
 
 if(__name__ == "__main__"):
