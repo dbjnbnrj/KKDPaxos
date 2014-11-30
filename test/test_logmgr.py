@@ -39,6 +39,8 @@ class TestSequenceFunctions(unittest.TestCase):
         # check getBalance
         self.assertEquals(logmgr.getBalance(), balance)
 
+        # check getSize
+        self.assertEquals(logmgr.getSize(), len(items))
     def test_recover_corrupted(self):
         # Create log file
         balance = 987
@@ -67,7 +69,7 @@ class TestSequenceFunctions(unittest.TestCase):
         balance = 20-8
         items = [LogItem(1,2,DEPOSIT,20), LogItem(5,6,WITHDRAW,8)]
         for item in items:
-            self.logmgr.appendLog(item)
+            self.logmgr.append(item)
 
         # check items
         self.assertEquals(self.logmgr._log, items)

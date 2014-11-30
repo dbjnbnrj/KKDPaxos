@@ -1,7 +1,5 @@
 import balanceMgr
-import paxos
 import clientInterface
-
 
 class BalanceSystem():
 
@@ -9,15 +7,10 @@ class BalanceSystem():
         self.pid = self.determinePid()
 
         self.balanceMgr = balanceMgr.BalanceMgr(self.pid)
-        self.paxosNode = paxos.PaxosNode(self.pid, 
-                            self.balanceMgr.processConsensus,
-                            self.balanceMgr.getLogItem)
-        self.balanceMgr.setPaxosNode(self.paxosNode)
 
         address = ("localhost", 9999)
         self.clientTCP = clientInterface.ClientTCPServer(self.balanceMgr, address)
         self.cli = clientInterface.CLI(self.balanceMgr)
-
 
 
     def determinePid(self):

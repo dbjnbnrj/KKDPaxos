@@ -1,13 +1,21 @@
 import os
+import time
 import collections
 import threading
-import pickle
+import paxos
 
 DEPOSIT = 0
 WITHDRAW = 1
 LOGFILE = "balance_log.txt"
 
 LogItem = collections.namedtuple('LogItem', ['pid', 'time', 'type', 'amount'])
+def convertItem2String(item):
+    return " ".join([str(v) for v in item])
+ 
+def convertString2Item(itemStr):
+    tokens = itemStr.split()
+    return LogItem(int(tokens[0]), int(tokens[1]), int(tokens[2]), int(tokens[3])) 
+
 
 class LogMgr():
     """ A class to handle log. 
@@ -28,7 +36,7 @@ class LogMgr():
     # -----
     # Public functions
     # -----
-    def appendLog(self, item):
+    def append(self, item):
         """ Append an item to log, then update balance. 
         
         Input argument:
@@ -42,7 +50,7 @@ class LogMgr():
             balance -= item.amount
 
         # Create a message that will be written in log
-        itemStr = self._convertItem2String(item) 
+        itemStr = convertItem2String(item) 
         msg = "{0};{1}".format(itemStr, balance)
 
         # Update local log and balance
@@ -74,6 +82,10 @@ class LogMgr():
         else:
             return None
 
+    def getSize(self):
+        """ Return the number of log items. """
+        return len(self._log)
+
     # -----
     # Private functions
     # -----
@@ -98,19 +110,12 @@ class LogMgr():
             else:
                 # Else, add item to log
                 itemStr = line.split(';')[0]
-                self._log.append(self._convertString2Item(itemStr))
+                self._log.append(convertString2Item(itemStr))
                 lastValidLine = line
         
         # Get balance
         balanceStr = lastValidLine.split(';')[1]
         self._balance = int(balanceStr)            
-
-    def _convertItem2String(self, item):
-        return " ".join([str(v) for v in item])
-     
-    def _convertString2Item(self, itemStr):
-        tokens = itemStr.split()
-        return LogItem(int(tokens[0]), int(tokens[1]), int(tokens[2]), int(tokens[3])) 
 
 class BalanceMgr():
     """ Class for managing balance.
@@ -120,67 +125,74 @@ class BalanceMgr():
     Methods for the caller:
 
     - __init__()
-    - deposit(val) -> SUCCESS/FAIL
-    - withdraw(val) -> SUCCESS/FAIL
+    - deposit(val) -> True/False
+    - withdraw(val) -> True/False
     - getBalance() -> int
-    - getLogItem(idx) -> LogItem
+    - getLogItem(idx) -> string
 
     """
     
     def __init__(self, pid):
         """ Initiate a balance manager. """
         self._pid = pid
-        self._paxosNode = None
-        self._logmgr = LogMgr()
+        self._logMgr = LogMgr()
+        self._paxosNode = paxos.PaxosNode(pid, self.processConsensus, self.getPrevConsensus)
 
     # -----
     # Public functions
     # -----
-    def setPaxosNode(self, node):
-        self._paxosNode = node
-
     def deposit(self, val):
-        """ Increase balance by val . It's a blocking function. 
-        Return: SUCCESS/FAIL
+        """ Increase balance by val. It's a blocking function.
+
+        deposit() -> True/False
         
+        Input argument:
+            val: int
+
+        Return True if deposition is completed. Otherwise, return False.
         """
+        item = LogItem(pid=self._pid, time=int(time.time()), 
+                       type=DEPOSIT, amount=val)
+        proposal = convertItem2String(item)
+        return self._paxosNode.request(proposal)
 
     def withdraw(self, val):
         """ Decrease balance by val. It's a blocking function. 
-        Return: SUCCESS/FAIL
         
+        deposit() -> True/False
+        
+        Input argument:
+            val: int
+        
+        Return True if deposition is completed. Otherwise, return False.
         Note: Overwithdraw is allowed.
-
         """
+        item = LogItem(pid=self._pid, time=int(time.time()), 
+                       type=WITHDRAW, amount=val)
+        proposal = convertItem2String(item)
+        return self._paxosNode.request(proposal)
 
     def getBalance(self):
-        """ Return current balance amount. """
-        return 0
+        """ Return current balance amount. 
+        
+        getBalance() -> int
+        """
+        return self._logMgr.getBalance()
 
-    def getLogItem(self, idx):
-        """ Return log item at index 'idx'. """
-        pass
+    def getPrevConsensus(self, idx):
+        """ Return log item at index 'idx'. 
+        
+        getPrevConsensus() -> string
+        """
+        return convertItem2String(self._logMgr.getItem(idx))
 
-    def processConsensus(self, consensusRound, item):
+    def processConsensus(self, consensus):
         """  This function will be called when reaching a consensus.
 
-        The function is responsible for
-        1) Send message back to _requestConsensus(), so it can know the result of 
-           current round.
-        2) Update log
-        
-        """
-    # -----
-    # Private functions
-    # -----
-    def _requestConsensus(self, item):
-        """ Run consensus algorithm until "action, val" is decided. It may take severals 
-            consensus rounds.
+        Input argument:
+            consensus: string 
 
-        Return SUCCESS if reaching a consensus with proposed value.
-               FAIL if not able to run consensus algorithm. (ex. majority nodes are down)
-
-        This is a blocking function. A thread will be blocked until the proposed value is 
-        decided.
-        
+        When receiving consensus, write it to log.
         """
+        item = convertString2Item(consensus)
+        self._logMgr.append(item)
