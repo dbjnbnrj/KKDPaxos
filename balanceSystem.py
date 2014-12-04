@@ -1,3 +1,5 @@
+import sys
+import globalData as gb
 import balanceMgr
 import clientInterface
 
@@ -8,14 +10,20 @@ class BalanceSystem():
 
         self.balanceMgr = balanceMgr.BalanceMgr(self.pid)
 
-        address = ("localhost", 9999)
-        self.clientTCP = clientInterface.ClientTCPServer(self.balanceMgr, address)
+        clientTCPAddress = (gb.ADDRESS[self.pid].ip, gb.CLIENT_TCP_PORT)
+        self.clientTCP = clientInterface.ClientTCPServer(self.balanceMgr, clientTCPAddress)
         self.cli = clientInterface.CLI(self.balanceMgr)
 
 
     def determinePid(self):
-        """ Return process ID. """
-        return 0
+        """ Return process ID. 
+        
+        Besides returning process ID, this function also check whether corresponding 
+        IP is correct.
+        """
+        pid = int(sys.argv[1])
+        print "PID is {0}. Corresponding address is {1}".format(pid, gb.ADDRESS[pid])
+        return pid
 
     def run(self):
         """ Start balance system. """
