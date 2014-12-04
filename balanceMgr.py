@@ -2,6 +2,7 @@ import os
 import time
 import collections
 import threading
+import Queue
 import paxos
 
 DEPOSIT = 0
@@ -70,10 +71,10 @@ class LogMgr():
         """
         return self._balance
 
-    def getItem(self, idx):
+    def getEntry(self, idx):
         """ Return the items of given index. 
        
-        getItem() -> Tuple of LogItem
+        getEntry() -> Tuple of LogItem
 
         Return None if there is no item of given index. It's expected that when a 
         caller aquires an item, the item is already in the log.
@@ -118,6 +119,8 @@ class LogMgr():
         balanceStr = lastValidLine.split(';')[1]
         self._balance = int(balanceStr)            
 
+
+
 class BalanceMgr():
     """ Class for managing balance.
 
@@ -126,8 +129,8 @@ class BalanceMgr():
     Methods for the caller:
 
     - __init__()
-    - deposit(val) -> True/False
-    - withdraw(val) -> True/False
+    - deposit(val) -> string
+    - withdraw(val) -> string
     - getBalance() -> int
     - getLogItem(idx) -> string
 
@@ -135,9 +138,15 @@ class BalanceMgr():
     
     def __init__(self, pid):
         """ Initiate a balance manager. """
+        # Create local members
         self._pid = pid
         self._logMgr = LogMgr()
         self._paxosNode = paxos.PaxosNode(pid, self.processConsensus, self.getPrevConsensus)
+        self._withdrawResultQ = Queue.Queue() 
+
+        # Initiate and start paxos node
+        #self._paxosNode.setRound(self._logMgr.getSize())
+        #self._paxosNode.start()
 
     # -----
     # Public functions
@@ -145,17 +154,26 @@ class BalanceMgr():
     def deposit(self, val):
         """ Increase balance by val. It's a blocking function.
 
-        deposit() -> True/False
+        deposit() -> string
         
         Input argument:
             val: int
 
-        Return True if deposition is completed. Otherwise, return False.
+        Return string to users, so users can know the result. 
         """
+        # Create commands
         item = LogItem(pid=self._pid, time=int(time.time()), 
                        type=DEPOSIT, amount=val)
         proposal = convertItem2String(item)
-        return self._paxosNode.request(proposal)
+
+        # Run consensus algorithm
+        status = self._paxosNode.request(proposal)
+
+        # Check result
+        if(status):
+            return "Success. Deposit {0}".format(val)
+        else:
+            return "Fail. Please retry."
 
     def withdraw(self, val):
         """ Decrease balance by val. It's a blocking function. 
@@ -165,13 +183,30 @@ class BalanceMgr():
         Input argument:
             val: int
         
-        Return True if deposition is completed. Otherwise, return False.
-        Note: Overwithdraw is allowed.
+        Return string to users, so users can know the result. 
         """
+        # Create commands
         item = LogItem(pid=self._pid, time=int(time.time()), 
                        type=WITHDRAW, amount=val)
         proposal = convertItem2String(item)
-        return self._paxosNode.request(proposal)
+
+        # Run consensus algorithm
+        status = self._paxosNode.request(proposal)
+
+        # Check result
+        if(status):
+            # Consensus algorithm completes. Wait for event to know if balance is enough.
+            valid = self._withdrawResultQ.get(timeout=5)
+            if(valid):
+                msg = "Success. Withdraw {0}".format(val)
+            else:
+                msg = "Fail. Balance is not enough."
+            self._withdrawResultQ.task_done()
+
+        else:
+            msg = "Fail. Please retry."
+        
+        return msg
 
     def getBalance(self):
         """ Return current balance amount. 
@@ -183,17 +218,45 @@ class BalanceMgr():
     def getPrevConsensus(self, idx):
         """ Return log item at index 'idx'. 
         
-        getPrevConsensus() -> string
+        getPrevConsensus() -> list of string
         """
-        return convertItem2String(self._logMgr.getItem(idx))
+        
+        return [convertItem2String(item) for item in self._logMgr.getEntry(idx)]
 
     def processConsensus(self, consensus):
         """  This function will be called when reaching a consensus.
 
         Input argument:
-            consensus: string 
+            consensus: list of string 
 
         When receiving consensus, write it to log.
         """
-        item = convertString2Item(consensus)
-        self._logMgr.append(item)
+        # Convert string to LogItem
+        items = [convertString2Item(s) for s in sorted(consensus)]
+
+        # Sort it. Deposit commands will be before withdraw commands
+        items = sorted(items, key=lambda item: item.type)
+
+        # Check all items and prepare to update log
+        balance = self.getBalance()
+        validItems = []
+        for item in items:
+            if(item.type == DEPOSIT):
+                # deposit, no further check is required
+                balance += item.amount
+                validItems.append(item)
+
+            elif(item.type == WITHDRAW):
+                # withdraw, first check if balance is enough. if it's not enough,
+                # then discard this command.
+                valid = (balance >= item.amount)
+                if(valid):
+                    balance -= item.amount
+                    validItems.append(item)
+                
+                # then if the command is initiated by current server, then send the result back.
+                if(item.pid == self._pid):
+                    self._withdrawResultQ.push(valid)
+
+        # Update log
+        self._logMgr.append(validItems)

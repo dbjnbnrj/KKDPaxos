@@ -36,7 +36,7 @@ class CLI(cmd.Cmd):
             self.stdout.write("Amount must be non-negative. Received: {0}\n".format(arg))
             return
         
-        self._balanceMgr.deposit(val)
+        self.stdout.write(self._balanceMgr.deposit(val)+"\n")
         self.stdout.write("Depositing {0}!\n".format(val))
 
     def help_deposit(self):
@@ -56,7 +56,7 @@ class CLI(cmd.Cmd):
             self.stdout.write("Amount must be non-negative. Received: {0}\n".format(arg))
             return
         
-        self._balanceMgr.withdraw(val)
+        self.stdout.write(self._balanceMgr.withdraw(val)+"\n")
         self.stdout.write("Withdraw {0}!\n".format(val))
 
     def help_withdraw(self):

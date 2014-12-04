@@ -32,7 +32,7 @@ class TestSequenceFunctions(unittest.TestCase):
         logmgr = LogMgr()
         for idx, item in enumerate(items):
             # check log content
-            self.assertEquals(logmgr.getItem(idx), item)
+            self.assertEquals(logmgr.getEntry(idx), item)
         
         # check getBalance
         self.assertEquals(logmgr.getBalance(), balance)
