@@ -36,25 +36,26 @@ class LogMgr():
     # -----
     # Public functions
     # -----
-    def append(self, item):
-        """ Append an item to log, then update balance. 
+    def append(self, items):
+        """ Append items to a single log entry, then update balance. 
         
         Input argument:
-            item: LogItem
+            items: Tuple of LogItem
         """
-        # Calculate result balance
         balance = self._balance
-        if(item.type == DEPOSIT):
-            balance += item.amount
-        elif(item.type == WITHDRAW):
-            balance -= item.amount
+        for item in items:
+            # Calculate result balance
+            if(item.type == DEPOSIT):
+                balance += item.amount
+            elif(item.type == WITHDRAW):
+                balance -= item.amount
 
         # Create a message that will be written in log
-        itemStr = convertItem2String(item) 
-        msg = "{0};{1}".format(itemStr, balance)
+        itemsStr = ",".join(convertItem2String(item) for item in items)
+        msg = "{0};{1}".format(itemsStr, balance)
 
         # Update local log and balance
-        self._log.append(item)
+        self._log.append(tuple(items))
         self._balance = balance
 
         # Write hard drive
@@ -70,9 +71,9 @@ class LogMgr():
         return self._balance
 
     def getItem(self, idx):
-        """ Return the LogItem of given index. 
+        """ Return the items of given index. 
        
-        getItem() -> LogItem
+        getItem() -> Tuple of LogItem
 
         Return None if there is no item of given index. It's expected that when a 
         caller aquires an item, the item is already in the log.
@@ -109,8 +110,8 @@ class LogMgr():
                 break
             else:
                 # Else, add item to log
-                itemStr = line.split(';')[0]
-                self._log.append(convertString2Item(itemStr))
+                itemsStr = line.split(';')[0]
+                self._log.append(tuple(convertString2Item(itemStr) for itemStr in itemsStr.split(',')))
                 lastValidLine = line
         
         # Get balance

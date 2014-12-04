@@ -17,14 +17,12 @@ class TestSequenceFunctions(unittest.TestCase):
             pass
         self.logmgr = LogMgr()
 
-        # Redirect stdout
-        self.held, sys.stdout = sys.stdout, StringIO()
-
     def test_recover(self):
         # Create log file
         balance = 987
-        items = [LogItem(1,2,3,4), LogItem(5,6,7,8)] 
-        lines = ["1 2 3 4;123", "5 6 7 8;{0}".format(balance)]
+        items = [(LogItem(1,2,3,4), LogItem(11,22,33,44)), 
+                 (LogItem(5,6,7,8), )] 
+        lines = ["1 2 3 4,11 22 33 44;123", "5 6 7 8;{0}".format(balance)]
         with open(LOGFILE, 'w') as fp:
             for line in lines:
                 fp.write(line+';'+LogMgr.ENDING_STR+"\n")
@@ -41,10 +39,14 @@ class TestSequenceFunctions(unittest.TestCase):
 
         # check getSize
         self.assertEquals(logmgr.getSize(), len(items))
+    
     def test_recover_corrupted(self):
+        # Redirect stdout
+        self.held, sys.stdout = sys.stdout, StringIO()
+        
         # Create log file
         balance = 987
-        items = [LogItem(1,2,3,4), LogItem(5,6,7,8)]
+        items = [(LogItem(1,2,3,4),), (LogItem(5,6,7,8),)]
         lines = ["1 2 3 4;123", "5 6 7 8;{0}".format(balance)]
         with open(LOGFILE, 'w') as fp:
             for line in lines:
@@ -66,8 +68,8 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertEqual(sys.stdout.getvalue(), 'Loading log... Line 3 is corrupted.\n')
 
     def test_append(self):
-        balance = 20-8
-        items = [LogItem(1,2,DEPOSIT,20), LogItem(5,6,WITHDRAW,8)]
+        balance = 20+10-8
+        items = [(LogItem(1,2,DEPOSIT,20),LogItem(1,2,DEPOSIT,10)), (LogItem(5,6,WITHDRAW,8),)]
         for item in items:
             self.logmgr.append(item)
 
