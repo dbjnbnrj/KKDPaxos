@@ -1,6 +1,6 @@
 import collections
 
-Address = collections.namedtuple('Address', ['ip', 'port'])
+Address = collections.namedtuple('Address', ['ip', 'port', 'cmdTCPPort'])
 
-CLIENT_TCP_PORT = 9999
-ADDRESS = [Address(ip="localhost", port=9990)]
+CMD_TCP_PORT = 9999
+ADDRESS = [Address(ip="localhost", port=9990, cmdTCPPort=CMD_TCP_PORT)]

@@ -10,7 +10,7 @@ class BalanceSystem():
 
         self.balanceMgr = balanceMgr.BalanceMgr(self.pid)
 
-        clientTCPAddress = (gb.ADDRESS[self.pid].ip, gb.CLIENT_TCP_PORT)
+        clientTCPAddress = (gb.ADDRESS[self.pid].ip, gb.ADDRESS[self.pid].cmdTCPPort)
         self.clientTCP = clientInterface.ClientTCPServer(self.balanceMgr, clientTCPAddress)
         self.cli = clientInterface.CLI(self.balanceMgr)
 
