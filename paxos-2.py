@@ -4,30 +4,16 @@ import sys
 import socket
 from Queue import Queue
 
+SERVERS = ['172.30.0.251', '172.30.0.238']
+
 class Messenger:
 	def __init__(self, owner):
 		self.owner = owner
 
-	def send_promise(self, msg):
-		self.client = PaxosClient(self.owner.server.server_address)
-		self.client.send(msg)
-		self.client.close()
-
-	def send_prepare(self, msg):
-		self.client = PaxosClient(self.owner.server.server_address)
-		self.client.send(msg)
-		self.client.close()
-
-
-	def send_accept(self, msg):
-		self.client = PaxosClient(self.owner.server.server_address)
-		self.client.send(msg)
-		self.client.close()
-
-	def send_decide(self, msg):
-		self.client = PaxosClient(self.owner.server.server_address)
-		self.client.send(msg)
-		self.client.close()
+	def send(self, msg):
+		for S in SERVERS: 
+			client = PaxosClient((S,10000), msg)
+			client.start()
 
 	def recv(self, data):
 		print('messenger recieves data',data)
@@ -46,89 +32,63 @@ class Messenger:
 			 
 		
 
-class PaxosRequestHandler(SocketServer.BaseRequestHandler):
-    
-    def __init__(self, request, client_address, server):
-        print('__init__')
-        SocketServer.BaseRequestHandler.__init__(self, request, client_address, server)
-        return
+class PaxosServer(threading.Thread):
 
-    def setup(self):
-        print('setup')
-        return SocketServer.BaseRequestHandler.setup(self)
+        def __init__(self, node):
+                self.node = node
+		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.server_address = ('', 10000)
+                self.sock.bind(self.server_address)
+                threading.Thread.__init__(self)
 
-    def handle(self):
-        print('handle')
-        data = self.request.recv(1024)
-        print('recv()->"%s"', data)
-	self.server.owner.messenger.recv(data)
-        return
+        def run(self):
+                print >>sys.stderr, 'starting up on %s port %s' % self.sock.getsockname()
+                self.sock.listen(1)
 
-    def finish(self):
-        print('finish')
-        return SocketServer.BaseRequestHandler.finish(self)
+                while True:
+                        print >>sys.stderr, 'waiting for a connection'
+                        connection, client_address = self.sock.accept()
+                        try:
+                                print >>sys.stderr, 'client connected:', client_address
+                                while True:
+                                        data = connection.recv(4096)
+                                        print >>sys.stderr, 'received "%s"' % data
+                                        if data:
+						self.node.messenger.recv(data)
+                                        else:
+                                                break
+                        finally:
+                                connection.close()
 
+class PaxosClient(threading.Thread):
 
-class PaxosServer(SocketServer.TCPServer):
-    
-    def __init__(self, owner, server_address, handler_class=PaxosRequestHandler):
-        SocketServer.TCPServer.__init__(self, server_address, handler_class)
-        self.owner = owner
-	return
+	def __init__(self, address, message):
+		self.address = address
+		self.message = message
+		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		threading.Thread.__init__(self)
+		
+	def run(self):
+		# Connect the socket to the port on the server given by the caller
+		print >>sys.stderr, 'connecting to %s port %s' % self.address
 
-    def server_activate(self):
-        print('server_activate')
-        SocketServer.TCPServer.server_activate(self)
-        return
+		self.sock.connect(('172.30.0.251',10000))
+		
+		try:
+    			print >>sys.stderr, 'sending "%s"' % self.message
+    			self.sock.sendall(self.message)
+        		data = self.sock.recv(4096)
+        		print >>sys.stderr, 'received "%s"' % data
 
-    def serve_forever(self):
-        print('waiting for request')
-        while True:
-            self.handle_request()
-        return
+		finally:
+			self.sock.close()
 
-    def handle_request(self):
-        print('handle_request')
-        return SocketServer.TCPServer.handle_request(self)
-
-    def verify_request(self, request, client_address):
-        print('verify_request(%s, %s)', request, client_address)
-        return SocketServer.TCPServer.verify_request(self, request, client_address)
-
-    def process_request(self, request, client_address):
-        print('process_request(%s, %s)', request, client_address)
-        return SocketServer.TCPServer.process_request(self, request, client_address)
-
-    def server_close(self):
-        print('server_close')
-        return SocketServer.TCPServer.server_close(self)
-
-    def finish_request(self, request, client_address):
-        print('finish_request(%s, %s)', request, client_address)
-        return SocketServer.TCPServer.finish_request(self, request, client_address)
-
-    def close_request(self, request_address):
-        print('close_request(%s)', request_address)
-        return SocketServer.TCPServer.close_request(self, request_address)
-
-class PaxosClient:
-	def __init__(self, address):
-		self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    		self.client.connect(address)
-	
-	def send(self, msg):	 
-		print('sending msg %s', msg)
-    		len_sent = self.client.send(msg)
-    		
-	def close(self):
-		print('closing socket')
-    		self.client.close()
 
 class Node(threading.Thread):
 	def __init__(self, addr, port):
 		threading.Thread.__init__(self)
 		self.address= (addr, port)
-		self.server = PaxosServer(self, self.address, PaxosRequestHandler)
+		self.server = PaxosServer(self)
 		self.q = Queue()
 		self.messenger = Messenger(self)
 		self.ballotNum = 0
@@ -143,13 +103,10 @@ class Node(threading.Thread):
 		self.acks = 0
 		self.accepts = 0
 		self.quorum = 1
-		self.isLeader = False
 		self.event = threading.Event()
 
 	def run(self):
-		t = threading.Thread(target=self.server.serve_forever)
-		t.setDaemon(True)
-		t.start()
+		self.server.start()
 		while True:
 			self.event.clear()
 			self.currentValue = self.q.get()
@@ -161,13 +118,13 @@ class Node(threading.Thread):
 	def send_prepare(self):
 		self.ballotNum += 1
 		msg = "PREPARE: "+str(self.ballotNum)
-		self.messenger.send_prepare(msg)
+		self.messenger.send(msg)
 	
 	def send_promise(self, b):
 		if b >= self.aBallotNum:
 			self.aBallotNum = b
 		msg = "ACK {0} {1} {2}".format(b, self.aInstance, self.acceptedVal)
-		self.messenger.send_promise(msg)
+		self.messenger.send(msg)
 	
 	def recieve_ack(self, BallotNum, instance, val):
 		if( BallotNum == self.ballotNum):
@@ -183,12 +140,12 @@ class Node(threading.Thread):
 
 	def send_accept(self,N, I, V):
 		msg = "ACCEPT {0} {1} {2}".format(N, I, V)
-		self.messenger.send_accept(msg)
+		self.messenger.send(msg)
 	
 	def recieve_accept(self, N, I, V):
 		if self.accepts >= self.quorum:
 			msg = "DECIDE {0}".format(V)
-			self.messenger.send_decide(msg)
+			self.messenger.send(msg)
 		else:
 			self.accepts += 1
 			self.send_accept(N,I,V)
@@ -199,6 +156,7 @@ class Node(threading.Thread):
 		self.currentValue = V
 
 if __name__ == '__main__':
+
     addr = 'localhost'
     port = 0
     n = Node(addr, port)
