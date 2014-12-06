@@ -4,7 +4,7 @@ import sys
 import socket
 from Queue import Queue
 
-SERVERS = ['172.30.0.85']
+SERVERS = ['172.30.0.85'] #'172.30.0.179']
 
 class Messenger:
 	def __init__(self, owner):
@@ -42,21 +42,21 @@ class PaxosServer(threading.Thread):
                 threading.Thread.__init__(self)
 
         def run(self):
-                print >>sys.stderr, 'starting up on %s port %s' % self.sock.getsockname()
+                print >>sys.stderr, 'server: starting up on %s port %s' % self.sock.getsockname()
                 self.sock.listen(1)
 
                 while True:
-                        print >>sys.stderr, 'waiting for a connection'
+                        print >>sys.stderr, 'server: waiting for a connection'
                         connection, client_address = self.sock.accept()
                         try:
-                                print >>sys.stderr, 'client connected:', client_address
+                                print >>sys.stderr, 'server: client connected:', client_address
                                 data = connection.recv(4096)
-                                print >>sys.stderr, 'received "%s"' % data
+                                print >>sys.stderr, 'server: received "%s"' % data
                                 if data:
 					self.node.messenger.recv(data)
 
 			finally:
-				print "Closing connection"
+				print "server: closing connection"
 
 class PaxosClient(threading.Thread):
 	def __init__(self, address, message):
@@ -67,15 +67,14 @@ class PaxosClient(threading.Thread):
 		
 	def run(self):
 		# Connect the socket to the port on the server given by the caller
-		print >>sys.stderr, 'connecting to %s port %s' % self.address
+		print >>sys.stderr, 'client: connecting to %s port %s' % self.address
 
 		self.sock.connect(self.address)
 		
 		try:
-    			print >>sys.stderr, 'sending "%s"' % self.message
+    			print >>sys.stderr, 'client: sending "%s"' % self.message
     			self.sock.sendall(self.message)
-        		data = self.sock.recv(4096)
-        		print >>sys.stderr, 'received "%s"' % data
+        		self.sock.recv(4096)
 
 		finally:
 			self.sock.close()
@@ -104,7 +103,7 @@ class Node(threading.Thread):
 		self.acceptedVal = "0"
 
 		self.instance = 0
-		self.quorum = 1
+		self.quorum = 2
 		self.event = threading.Event()
 
 	def run(self):
@@ -138,7 +137,7 @@ class Node(threading.Thread):
 	
 	def send_promise(self, instance, pBallotNum):
 		if instance != self.instance:
-			print "expected instance {0}; actual instance: {1}".format(instance, self.instance)
+			print "expected instance {0}; actual instance: {1}".format(self.instance, instance)
 		elif pBallotNum >= self.aballotNum:
 			self.aballotNum = pBallotNum
 			msg = "ACK {0} {1} {2} {3}".format(self.instance, self.aballotNum, self.acceptedNum, self.acceptedVal)
@@ -162,24 +161,25 @@ class Node(threading.Thread):
 		self.messenger.send(msg)
 	
 	def recieve_accept(self, instance, ballotNum, value):
-		if self.accepts >= self.quorum:
-			msg = "DECIDE {0} {1}".format(instance, value)
-			self.messenger.send(msg)
-		else:
-			self.accepts += 1
-			self.send_accept(instance, ballotNum, value)
+		if instance == self.instance:
+			if self.accepts >= self.quorum:
+				msg = "DECIDE {0} {1}".format(instance, value)
+				self.messenger.send(msg)
+			else:
+				self.accepts += 1
+				self.send_accept(instance, ballotNum, value)
 
 	def recieve_decide(self, instance, value):
-		print "Decided on value {0} in round {1}".format(value, instance)
-		self.event.set()
-		self.currentValue = value
-		self.instance = instance + 1
-		self.reset()
+		if instance == self.instance:
+			print "Decided on value {0} in round {1}".format(value, instance)
+			self.event.set()
+			self.currentValue = value
+			self.instance = instance + 1
+			self.reset()
 
 if __name__ == '__main__':
-
     addr = 'localhost'
-    port = 0
+    port = 10000
     n = Node(addr, port)
     n.q.put("deposit100")
     n.start()
