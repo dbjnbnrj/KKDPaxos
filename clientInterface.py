@@ -13,6 +13,7 @@ class CLI(cmd.Cmd):
         - balance
         - fail
         - unfail
+        - print
         - quit, q, ctrl+d
     """
     
@@ -75,7 +76,7 @@ class CLI(cmd.Cmd):
         self.stdout.write(msg)
 
     # -------------------
-    def do_fail(self):
+    def do_fail(self, arg):
         self.stdout.write("Fail\n")
 
     def help_fail(self):
@@ -84,12 +85,22 @@ class CLI(cmd.Cmd):
         self.stdout.write(msg)
 
     # -------------------
-    def do_unfail(self):
+    def do_unfail(self, arg):
         self.stdout.write("Unfail\n")
 
     def help_unfail(self):
         msg = "syntax: unfail\n"
         msg += "\t-- = resume from failure\n"
+        self.stdout.write(msg)
+
+    # -------------------
+    def do_print(self, arg):
+        log = self._balanceMgr.debugLog()
+        self.stdout.write("{0}\n".format(log))
+
+    def help_print(self):
+        msg = "syntax: print\n"
+        msg += "\t-- = print current log\n"
         self.stdout.write(msg)
 
     # -------------------

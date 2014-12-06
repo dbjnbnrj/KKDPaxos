@@ -3,11 +3,12 @@ import time
 import collections
 import threading
 import Queue
-import paxos
+import paxosBasic as paxos
 
-DEPOSIT = 0
-WITHDRAW = 1
-LOGFILE = "balance_log.txt"
+DEPOSIT = "deposit"
+WITHDRAW = "withdraw"
+INVALID_WITHDRAW = "invalidWithdraw"
+LOGFILE = "balance_log"
 
 LogItem = collections.namedtuple('LogItem', ['pid', 'time', 'type', 'amount'])
 def convertItem2String(item):
@@ -15,7 +16,7 @@ def convertItem2String(item):
  
 def convertString2Item(itemStr):
     tokens = itemStr.split()
-    return LogItem(int(tokens[0]), int(tokens[1]), int(tokens[2]), int(tokens[3])) 
+    return LogItem(int(tokens[0]), float(tokens[1]), tokens[2], int(tokens[3])) 
 
 
 class LogMgr():
@@ -70,6 +71,7 @@ class LogMgr():
         getBalance() -> int
         """
         return self._balance
+
 
     def getEntry(self, idx):
         """ Return the items of given index. 
@@ -141,12 +143,13 @@ class BalanceMgr():
         # Create local members
         self._pid = pid
         self._logMgr = LogMgr()
-        self._paxosNode = paxos.PaxosNode(pid, self.processConsensus, self.getPrevConsensus)
+        
+        nextEntry = self._logMgr.getSize()
+        self._paxosNode = paxos.PaxosNode(pid, nextEntry, self.processConsensus, self.getPrevConsensus)
         self._withdrawResultQ = Queue.Queue() 
 
         # Initiate and start paxos node
-        #self._paxosNode.setRound(self._logMgr.getSize())
-        #self._paxosNode.start()
+        self._paxosNode.start()
 
     # -----
     # Public functions
@@ -196,6 +199,7 @@ class BalanceMgr():
         # Check result
         if(status):
             # Consensus algorithm completes. Wait for event to know if balance is enough.
+            # result should have been ready in queue
             valid = self._withdrawResultQ.get(timeout=5)
             if(valid):
                 msg = "Success. Withdraw {0}".format(val)
@@ -214,6 +218,16 @@ class BalanceMgr():
         getBalance() -> int
         """
         return self._logMgr.getBalance()
+
+    def debugLog(self):
+        """ Return log string. """
+        result = ""
+        for idx in range(self._logMgr.getSize()):
+            items = self._logMgr.getEntry(idx)
+            entryStr = "|".join([str(item) for item in items])
+            result = "{0}\n{1}".format(result, entryStr)
+        
+        return result
 
     def getPrevConsensus(self, idx):
         """ Return log item at index 'idx'. 
@@ -253,10 +267,14 @@ class BalanceMgr():
                 if(valid):
                     balance -= item.amount
                     validItems.append(item)
+                else:
+                    invalidItem = LogItem(pid=item.pid, time=item.time, 
+                                        type=INVALID_WITHDRAW, amount=item.amount)
+                    validItems.append(invalidItem)
                 
                 # then if the command is initiated by current server, then send the result back.
                 if(item.pid == self._pid):
-                    self._withdrawResultQ.push(valid)
+                    self._withdrawResultQ.put(valid)
 
         # Update log
         self._logMgr.append(validItems)
