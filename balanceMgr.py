@@ -4,6 +4,7 @@ import collections
 import threading
 import Queue
 import paxosBasic as paxos
+#import paxosImprov as paxos
 
 DEPOSIT = "deposit"
 WITHDRAW = "withdraw"
@@ -149,6 +150,7 @@ class BalanceMgr():
         
         nextEntry = self._logMgr.getSize()
         self._paxosNode = paxos.PaxosNode(pid, nextEntry, self.processConsensus, self.getPrevConsensus)
+        #self._paxosNode = paxos.PaxosNodeImprov(pid, nextEntry, self.processConsensus, self.getPrevConsensus)
         self._withdrawResultQ = Queue.Queue() 
 
         # Initiate and start paxos node

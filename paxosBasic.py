@@ -98,7 +98,7 @@ class Messenger(SocketServer.TCPServer):
     # -----
     # Functions related to paxos message
     # -----
-    def sendPrepare(self, roundIdx, ballotNum):
+    def sendPrepare(self, roundIdx, ballotNum, val):
         """ Send prepare to all acceptors. 
         
         sendPrepare() -> True/False
@@ -106,7 +106,7 @@ class Messenger(SocketServer.TCPServer):
         Return True is majority is active.
         Otherwise, return False.
         """
-        msgList = [Messenger.PREPARE, self._pid, roundIdx, ballotNum.pid, ballotNum.num]
+        msgList = [Messenger.PREPARE, self._pid, roundIdx, ballotNum.pid, ballotNum.num, val]
         msg = self._myJoin(msgList)
         majorityActive = self._broadcast(msg)
 
@@ -171,8 +171,8 @@ class Messenger(SocketServer.TCPServer):
        
         if(msgType == Messenger.PREPARE):
             # prepare
-            senderID, roundIdx, bPid, bNum = [int(v) for v in tokens[1:5]]
-            self._node.recvPrepare(senderID, roundIdx, BallotNum(bPid, bNum))
+            senderID, roundIdx, bPid, bNum, val = [int(v) for v in tokens[1:5]]+[tokens[5]]
+            self._node.recvPrepare(senderID, roundIdx, BallotNum(bPid, bNum), val)
 
         elif(msgType == Messenger.PROMISE):
             # promise
@@ -407,7 +407,7 @@ class PaxosNode():
         self._paxosLock.release()
 
 
-    def recvPrepare(self, pid, roundIdx, ballotNum):
+    def recvPrepare(self, pid, roundIdx, ballotNum, val):
         """ Process prepare message. It's an acceptor's function in phase one. 
         
         First, check roundIdx and current round. See function _checkRound() for detail.
@@ -545,11 +545,11 @@ class PaxosNode():
             aquiredRound = self._round
             self._pDesiredVal = val
             self._prepareNewPropose()
-            majorityActive = self._msgr.sendPrepare(self._round, self._pBallotNum)
+            majorityActive = self._msgr.sendPrepare(self._round, self._pBallotNum, val)
         elif(aquiredRound == self._round):
             # Subsequent propose of the same round
             self._prepareNewPropose()
-            majorityActive = self._msgr.sendPrepare(self._round, self._pBallotNum)
+            majorityActive = self._msgr.sendPrepare(self._round, self._pBallotNum, val)
         else:
             # Current round is completed but the caller missed it
             # Do nothing. Let caller check the result.
