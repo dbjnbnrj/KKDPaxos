@@ -4,7 +4,7 @@ import sys
 import socket
 from Queue import Queue
 
-SERVERS = ['172.30.0.85'] #'172.30.0.179']
+SERVERS = ['172.30.0.85','172.30.0.179']
 
 class Messenger:
 	def __init__(self, owner):
@@ -181,5 +181,4 @@ if __name__ == '__main__':
     addr = 'localhost'
     port = 10000
     n = Node(addr, port)
-    n.q.put("deposit100")
     n.start()
