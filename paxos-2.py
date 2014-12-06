@@ -4,7 +4,7 @@ import sys
 import socket
 from Queue import Queue
 
-SERVERS = ['172.30.0.85']
+SERVERS = ['172.30.0.85','172.30.0.179']
 
 class Messenger:
 	def __init__(self, owner):
@@ -162,24 +162,25 @@ class Node(threading.Thread):
 		self.messenger.send(msg)
 	
 	def recieve_accept(self, instance, ballotNum, value):
-		if self.accepts >= self.quorum:
-			msg = "DECIDE {0} {1}".format(instance, value)
-			self.messenger.send(msg)
-		else:
-			self.accepts += 1
-			self.send_accept(instance, ballotNum, value)
+		if instance == self.instance:
+			if self.accepts >= self.quorum:
+				msg = "DECIDE {0} {1}".format(instance, value)
+				self.messenger.send(msg)
+			else:
+				self.accepts += 1
+				self.send_accept(instance, ballotNum, value)
 
 	def recieve_decide(self, instance, value):
-		print "Decided on value {0} in round {1}".format(value, instance)
-		self.event.set()
-		self.currentValue = value
-		self.instance = instance + 1
-		self.reset()
+		if instance == self.instance:
+			print "Decided on value {0} in round {1}".format(value, instance)
+			self.event.set()
+			self.currentValue = value
+			self.instance = instance + 1
+			self.reset()
 
 if __name__ == '__main__':
 
-    addr = 'localhost'
-    port = 0
+    addr = ''
+    port = 10000
     n = Node(addr, port)
-    n.q.put("deposit100")
     n.start()
