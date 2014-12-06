@@ -154,11 +154,15 @@ class Node(threading.Thread):
 			if(self.acks >= self.quorum):
 				if self.highestValue != "0":
 					self.currentValue = str(self.highestValue)
-				self.send_accept(self.instance, aBallotNum, self.currentValue)
+				self.send_paccept(self.instance, aBallotNum, self.currentValue)
 
-	def send_accept(self, instance, ballotNum, value):
-		msg = "ACCEPT {0} {1} {2}".format(instance, ballotNum, value)
+	def send_paccept(self, instance, ballotNum, value):
+		msg = "PACCEPT {0} {1} {2}".format(instance, ballotNum, value)
 		self.messenger.send(msg)
+
+       def send_accept(self, instance, ballotNum, value):
+                msg = "ACCEPT {0} {1} {2}".format(instance, ballotNum, value)
+                self.messenger.send(msg)
 	
 	def recieve_accept(self, instance, ballotNum, value):
 		if instance == self.instance:
