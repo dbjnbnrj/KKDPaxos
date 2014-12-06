@@ -9,24 +9,25 @@ class Messenger:
 		self.owner = owner
 
 	def send_promise(self, msg):
-		client = PaxosClient(self.owner.server.server_address)
-		client.send(msg)
-		client.close()
+		self.client = PaxosClient(self.owner.server.server_address)
+		self.client.send(msg)
+		self.client.close()
 
-	def send_propose(self, msg):
-		client = PaxosClient(self.owner.server.server_address)
-		client.send(msg)
-		client.close()
+	def send_prepare(self, msg):
+		self.client = PaxosClient(self.owner.server.server_address)
+		self.client.send(msg)
+		self.client.close()
+
 
 	def send_accept(self, msg):
-		client = PaxosClient(self.owner.server.server_address)
-		client.send(msg)
-		client.close()
+		self.client = PaxosClient(self.owner.server.server_address)
+		self.client.send(msg)
+		self.client.close()
 
 	def send_decide(self, msg):
-		client = PaxosClient(self.owner.server.server_address)
-		client.send(msg)
-		client.close()
+		self.client = PaxosClient(self.owner.server.server_address)
+		self.client.send(msg)
+		self.client.close()
 
 	def recv(self, data):
 		print('messenger recieves data',data)
@@ -38,7 +39,7 @@ class Messenger:
 			self.owner.recieve_ack( int(s[1]), int(s[2]), s[3] )
 		if "ACCEPT" in data:
 			s = data.split()
-			self.owner.recieve_accept(int(s[1]), s[2])
+			self.owner.recieve_accept(int(s[1]), s[2], s[3])
 		if "DECIDE" in data:
 			s = data.split()
 			self.owner.recieve_decide(s[1])
@@ -137,60 +138,65 @@ class Node(threading.Thread):
 		self.highestBallot = 0
 		self.highestValue = "0"
 		self.currentValue = "0"
+		self.pInstance = 0
+		self.aInstance = 0
 		self.acks = 0
 		self.accepts = 0
 		self.quorum = 1
+		self.isLeader = False
+		self.event = threading.Event()
 
 	def run(self):
 		t = threading.Thread(target=self.server.serve_forever)
 		t.setDaemon(True)
 		t.start()
 		while True:
+			self.event.clear()
 			self.currentValue = self.q.get()
 			print "Current Value is ",self.currentValue
-			self.send_propose()
+			self.send_prepare()
+			self.event.wait()
 			self.q.task_done()
 
-	def send_propose(self):
+	def send_prepare(self):
 		self.ballotNum += 1
 		msg = "PREPARE: "+str(self.ballotNum)
-		self.messenger.send_propose(msg)
+		self.messenger.send_prepare(msg)
 	
 	def send_promise(self, b):
 		if b >= self.aBallotNum:
 			self.aBallotNum = b
-		msg = "ACK {0} {1} {2}".format(b,self.acceptedNum,self.acceptedVal)
+		msg = "ACK {0} {1} {2}".format(b, self.aInstance, self.acceptedVal)
 		self.messenger.send_promise(msg)
 	
-	def recieve_ack(self, BallotNum, b, val):
+	def recieve_ack(self, BallotNum, instance, val):
 		if( BallotNum == self.ballotNum):
 			self.acks += 1
-			val = 0
-			if(self.highestBallot < b):
-				self.highestBallot = b
-				self.highestValue = val
+			self.pInstance = instance
+			self.highestValue = val
 			if(self.acks >= self.quorum):
 				if self.highestValue != "0":
 					self.currentValue = str(self.highestValue)
+				self.isLeader = True
 				self.acks = 0
-				msg = "ACCEPT {0} {1}".format(BallotNum, self.currentValue)
-				self.messenger.send_accept(msg)
+				self.send_accept(BallotNum, self.pInstance, self.currentValue)
+
+	def send_accept(self,N, I, V):
+		msg = "ACCEPT {0} {1} {2}".format(N, I, V)
+		self.messenger.send_accept(msg)
 	
-	def recieve_accept(self, b, v):
+	def recieve_accept(self, N, I, V):
 		if self.accepts >= self.quorum:
-			msg = "DECIDE {0}".format(v)
+			msg = "DECIDE {0}".format(V)
 			self.messenger.send_decide(msg)
 		else:
-			if b >= self.ballotNum:
-				self.accepts += 1
-				self.acceptedNum = b
-				self.acceptedValue = v
-				msg =  "ACCEPT {0} {1}".format(self.ballotNum, self.currentValue)
-				self.messenger.send_accept(msg)
+			self.accepts += 1
+			self.send_accept(N,I,V)
 
-	def recieve_decide(self, v):
-		print "Decided on value {0}".format(v)
-		self.currentValue = v
+	def recieve_decide(self, V):
+		print "Decided on value {0}".format(V)
+		self.event.set()
+		self.currentValue = V
 
 if __name__ == '__main__':
 
@@ -198,4 +204,6 @@ if __name__ == '__main__':
     port = 0
     n = Node(addr, port)
     n.q.put("deposit100")
+    n.q.put("deposit200")
     n.start()
+    n.q.put("withdraw400")
