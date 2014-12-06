@@ -166,7 +166,6 @@ class Messenger(SocketServer.TCPServer):
 
     def _receive(self, msg):
         """ Create a new thread, then dispatch to corresponding functions in PaxosNode. """
-        print "Msgr: receive", msg
         tokens = msg.split(',')
         msgType = tokens[0]
        
@@ -237,7 +236,6 @@ class Messenger(SocketServer.TCPServer):
         if(not self._active):
             return False
         
-        print "Send: ", msg
         noError = True
         # Create a socket (SOCK_STREAM means a TCP socket)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -327,7 +325,6 @@ class PaxosNode():
         # Only one thread can propose a value at one time.
         self._requestLock.acquire()
         
-        #print "Get request:" + val
         aquiredRound = None
         isDecided = False
         majorityActive = True 
