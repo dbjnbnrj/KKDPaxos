@@ -69,7 +69,8 @@ class Messenger(SocketServer.TCPServer):
         self._active = False
 
         # base class's constructor
-        serverAddress = (gb.ADDRESS[self._pid].ip, gb.ADDRESS[self._pid].port)
+        #serverAddress = (gb.ADDRESS[self._pid].ip, gb.ADDRESS[self._pid].port)
+        serverAddress = ('', gb.ADDRESS[self._pid].port)
         SocketServer.TCPServer.__init__(self, serverAddress, PaxosRequestHandler, bind_and_activate=False)
         
 
