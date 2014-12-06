@@ -55,6 +55,7 @@ class Messenger(SocketServer.TCPServer):
     ACCEPTED = '3'
     DECIDE = '4'
     INQUIRE = '5'
+    RESULT = '6'
     def __init__(self, node):
         """ Initiate a TCP server. 
 
@@ -65,23 +66,34 @@ class Messenger(SocketServer.TCPServer):
         # local variables
         self._node = node
         self._pid = node._pid
+        self._active = False
 
         # base class's constructor
         serverAddress = (gb.ADDRESS[self._pid].ip, gb.ADDRESS[self._pid].port)
-        SocketServer.TCPServer.__init__(self, serverAddress, PaxosRequestHandler)
+        SocketServer.TCPServer.__init__(self, serverAddress, PaxosRequestHandler, bind_and_activate=False)
         
-        # thread that runs self.serve_forever
-        self.thread = threading.Thread(target=self.serve_forever)
-        self.thread.setDaemon(True)
 
     # -----
     # Public functions
     # -----    
     def start(self):
         """ Create a new thread that listens to incoming connection. """
+        # create new socket
+        self.socket = socket.socket(self.address_family,
+                                    self.socket_type)
+        self.server_bind()
+        self.server_activate()
+        # thread that runs self.serve_forever
+        self.thread = threading.Thread(target=self.serve_forever)
+        self.thread.setDaemon(True)
         self.thread.start()
+        self._active = True
 
-    # To stop running, call Messenger.shutdown()
+    def shutdown(self):
+        SocketServer.TCPServer.shutdown(self)
+        # close socket
+        self.server_close()
+        self._active = False
 
     # -----
     # Functions related to paxos message
@@ -129,11 +141,18 @@ class Messenger(SocketServer.TCPServer):
         """ Send Inquire message to ask for sync. """
         msgList = [Messenger.INQUIRE, self._pid, myRoundIdx]
         msg = self._myJoin(msgList)
-        self._send(targetPid, msg)
+        if(targetPid == None):
+            for offset in range(1,gb.N_NODE):
+                targetPid = (self._pid + offset )%gb.N_NODE
+                noError = self._send(targetPid, msg)
+                if(noError):
+                    break
+        else:
+            self._send(targetPid, msg)
 
-    def sendResult(self, targetPid, roundIdx, val):
+    def sendResult(self, targetPid, initRoundIdx, val):
         """ Send previous result(with given index) to target node. """
-        msgList = [Messenger.DECIDE, self._pid, roundIdx, val]
+        msgList = [Messenger.RESULT, self._pid, initRoundIdx, val]
         msg = self._myJoin(msgList)
         self._send(targetPid, msg)
 
@@ -181,6 +200,11 @@ class Messenger(SocketServer.TCPServer):
             senderID, senderRoundIdx = [int(v) for v in tokens[1:3]]
             self._node.recvInquire(senderID, senderRoundIdx)
 
+        elif(msgType == Messenger.RESULT):
+            # result
+            senderID, initRoundIdx, val = [int(v) for v in tokens[1:3]] + [tokens[3]]
+            self._node.recvResult(senderID, initRoundIdx, val)
+
         else:
             raise ValueError("Unexpected message type: {0}".format(msgType))
 
@@ -209,6 +233,9 @@ class Messenger(SocketServer.TCPServer):
         Return True if communication is successful.
         Otherwise, return False.
         """
+        if(not self._active):
+            return False
+        
         print "Send: ", msg
         noError = True
         # Create a socket (SOCK_STREAM means a TCP socket)
@@ -299,7 +326,7 @@ class PaxosNode():
         # Only one thread can propose a value at one time.
         self._requestLock.acquire()
         
-        print "Get request:" + val
+        #print "Get request:" + val
         aquiredRound = None
         isDecided = False
         majorityActive = True 
@@ -331,13 +358,17 @@ class PaxosNode():
 
     def start(self):
         """ Start server. """
-        self._msgr.start()
-        self._active = True
+        if(not self._active):
+            self._msgr.start()
+            # Inquire log
+            self._msgr.sendInquire(None, self._round)
+            self._active = True
 
     def shutdown(self):
         """ Shutdown server. Stop receiving and sending message. """
-        self._active = False
-        self._msgr.shutdown()
+        if(self._active):
+            self._active = False
+            self._msgr.shutdown()
 
     # -----
     # Functions called by Messenger
@@ -461,9 +492,16 @@ class PaxosNode():
 
     def recvInquire(self, senderID, senderRoundIdx):
         """ Send all result from senderRoundIdx to the latest round. """
-        for roundIdx in range(senderRoundIdx, self._round):
-            val = "|".join(self._readLogFunc(roundIdx))
-            self._msgr.sendResult(senderID, roundIdx, val)
+        if(senderRoundIdx >= self._round):
+            return
+        
+        result = "|".join(self._readLogFunc(senderRoundIdx))
+        self._msgr.sendResult(senderID, senderRoundIdx, result)
+ 
+    def recvResult(self, senderID, initRoundIdx, val):
+        if(initRoundIdx >= self._round):
+            self.recvDecide(senderID, initRoundIdx, val)
+            self._msgr.sendInquire(senderID, initRoundIdx+1)
 
     # -----
     # Private functions

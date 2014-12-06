@@ -38,7 +38,7 @@ class CLI(cmd.Cmd):
             return
         
         self.stdout.write(self._balanceMgr.deposit(val)+"\n")
-        self.stdout.write("Depositing {0}!\n".format(val))
+        #self.stdout.write("Depositing {0}!\n".format(val))
 
     def help_deposit(self):
         msg = "syntax: deposit [amount]\n"
@@ -58,7 +58,7 @@ class CLI(cmd.Cmd):
             return
         
         self.stdout.write(self._balanceMgr.withdraw(val)+"\n")
-        self.stdout.write("Withdraw {0}!\n".format(val))
+        #self.stdout.write("Withdraw {0}!\n".format(val))
 
     def help_withdraw(self):
         msg = "syntax: withdraw [amount]\n"
@@ -77,6 +77,7 @@ class CLI(cmd.Cmd):
 
     # -------------------
     def do_fail(self, arg):
+        self._balanceMgr.shutdown()
         self.stdout.write("Fail\n")
 
     def help_fail(self):
@@ -86,6 +87,7 @@ class CLI(cmd.Cmd):
 
     # -------------------
     def do_unfail(self, arg):
+        self._balanceMgr.unfail()
         self.stdout.write("Unfail\n")
 
     def help_unfail(self):
@@ -105,6 +107,7 @@ class CLI(cmd.Cmd):
 
     # -------------------
     def do_quit(self, arg):
+        self._balanceMgr.shutdown()
         self.stdout.write("\nSee you ~\n")
         return True
 

@@ -135,6 +135,9 @@ class BalanceMgr():
     - withdraw(val) -> string
     - getBalance() -> int
     - getLogItem(idx) -> string
+    - debugLog()
+    - shutdown()
+    - unfial()
 
     """
     
@@ -218,6 +221,12 @@ class BalanceMgr():
         getBalance() -> int
         """
         return self._logMgr.getBalance()
+    
+    def shutdown(self):
+        self._paxosNode.shutdown()
+    
+    def unfail(self):
+        self._paxosNode.start()
 
     def debugLog(self):
         """ Return log string. """
@@ -271,10 +280,9 @@ class BalanceMgr():
                     invalidItem = LogItem(pid=item.pid, time=item.time, 
                                         type=INVALID_WITHDRAW, amount=item.amount)
                     validItems.append(invalidItem)
-                
-                # then if the command is initiated by current server, then send the result back.
-                if(item.pid == self._pid):
-                    self._withdrawResultQ.put(valid)
-
+            elif(item.type == INVALID_WITHDRAW):
+                validItems.append(item)
+            else: 
+                print "Unexpected entry"
         # Update log
         self._logMgr.append(validItems)
