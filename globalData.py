@@ -3,11 +3,11 @@ import collections
 # IP, PORT related variables
 Address = collections.namedtuple('Address', ['ip', 'port', 'cmdTCPPort'])
 
-ADDRESS = [Address(ip="54.84.30.1", port=9990, cmdTCPPort=9999),
-           Address(ip="54.85.137.84", port=9990, cmdTCPPort=9999),
-           Address(ip="54.86.219.155", port=9990, cmdTCPPort=9999),
-           Address(ip="54.86.219.172", port=9990, cmdTCPPort=9999),
-           Address(ip="54.86.219.155", port=9990, cmdTCPPort=9999)]
+ADDRESS = [Address(ip="54.86.219.155", port=9990, cmdTCPPort=9999),
+           Address(ip="54.165.53.186", port=9990, cmdTCPPort=9999),
+           Address(ip="54.165.54.129", port=9990, cmdTCPPort=9999),
+           Address(ip="54.174.99.172", port=9990, cmdTCPPort=9999),
+           Address(ip="54.174.181.8", port=9990, cmdTCPPort=9999)]
 
 #CMD_TCP_PORT = 9999
 #ADDRESS = [Address(ip="localhost", port=9990, cmdTCPPort=CMD_TCP_PORT),
