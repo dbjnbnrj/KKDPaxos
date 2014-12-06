@@ -11,7 +11,7 @@ class BallotNum():
         self.num = num
 
     def increase(self):
-        self.num += 1
+        self.num += random.randint(1,5)
 
     def __cmp__(self, obj):
         if(self.num < obj.num):
@@ -581,11 +581,12 @@ class PaxosNode():
     def _processConcensus(self, val):
         """ This function will be called after reaching a consensus. """
 
+        vals = val.split('|')
         # Call the hook function _processConsensusFunc, which will update log
-        self._processConsensusFunc([val])
+        self._processConsensusFunc(vals)
         
         # Send result to inform another thread in request()
-        self._consensusQ.put((self._round ,[val]))
+        self._consensusQ.put((self._round ,vals))
 
         # Current round is end. Start a new round
         self._startNewRound(self._round+1)

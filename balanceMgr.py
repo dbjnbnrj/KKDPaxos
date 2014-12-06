@@ -4,7 +4,8 @@ import collections
 import threading
 import Queue
 import paxosBasic as paxos
-#import paxosImprov as paxos
+import paxosImprov as paxosImp
+import sys
 
 DEPOSIT = "deposit"
 WITHDRAW = "withdraw"
@@ -54,7 +55,7 @@ class LogMgr():
                 balance -= item.amount
 
         # Create a message that will be written in log
-        itemsStr = ",".join(convertItem2String(item) for item in items)
+        itemsStr = "|".join(convertItem2String(item) for item in items)
         msg = "{0};{1}".format(itemsStr, balance)
 
         # Update local log and balance
@@ -115,7 +116,7 @@ class LogMgr():
             else:
                 # Else, add item to log
                 itemsStr = line.split(';')[0]
-                self._log.append(tuple(convertString2Item(itemStr) for itemStr in itemsStr.split(',')))
+                self._log.append(tuple(convertString2Item(itemStr) for itemStr in itemsStr.split('|')))
                 lastValidLine = line
         
         # Get balance
@@ -149,8 +150,12 @@ class BalanceMgr():
         self._logMgr = LogMgr()
         
         nextEntry = self._logMgr.getSize()
-        self._paxosNode = paxos.PaxosNode(pid, nextEntry, self.processConsensus, self.getPrevConsensus)
-        #self._paxosNode = paxos.PaxosNodeImprov(pid, nextEntry, self.processConsensus, self.getPrevConsensus)
+        if(len(sys.argv) > 2  and sys.argv[2] == '-imp'):
+            print "Improved Paxos mode"
+            self._paxosNode = paxosImp.PaxosNodeImprov(pid, nextEntry, self.processConsensus, self.getPrevConsensus)
+        else:
+            print "Basic Paxos mode"
+            self._paxosNode = paxos.PaxosNode(pid, nextEntry, self.processConsensus, self.getPrevConsensus)
         self._withdrawResultQ = Queue.Queue() 
 
         # Initiate and start paxos node
@@ -282,6 +287,12 @@ class BalanceMgr():
                     invalidItem = LogItem(pid=item.pid, time=item.time, 
                                         type=INVALID_WITHDRAW, amount=item.amount)
                     validItems.append(invalidItem)
+                
+                # if the command is initiated by current server, then send the result back.
+                if(item.pid == self._pid):
+                    self._withdrawResultQ.put(valid)
+
+
             elif(item.type == INVALID_WITHDRAW):
                 validItems.append(item)
             else: 
