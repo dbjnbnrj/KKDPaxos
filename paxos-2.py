@@ -19,16 +19,16 @@ class Messenger:
 		print('messenger recieves data',data)
 		if "PREPARE" in data:
 			b = data.split()
-			self.owner.send_promise(int(b[1]))
+			self.owner.send_promise( int(b[1]), int(b[2]) )
 		if "ACK" in data:
 			s = data.split()
-			self.owner.recieve_ack( int(s[1]), int(s[2]), s[3] )
+			self.owner.recieve_ack( int(s[1]), int(s[2]), int(s[3]), s[4] )
 		if "ACCEPT" in data:
 			s = data.split()
 			self.owner.recieve_accept(int(s[1]), s[2], s[3])
 		if "DECIDE" in data:
 			s = data.split()
-			self.owner.recieve_decide(s[1])
+			self.owner.recieve_decide(int(s[1]), s[2])
 			 
 		
 
@@ -84,21 +84,26 @@ class PaxosClient(threading.Thread):
 class Node(threading.Thread):
 	def __init__(self, addr, port):
 		threading.Thread.__init__(self)
+		""" These are node specific variables """
 		self.address= (addr, port)
 		self.server = PaxosServer(self)
 		self.q = Queue()
 		self.messenger = Messenger(self)
-		self.ballotNum = 0
-		self.aBallotNum = 0
-		self.acceptedNum = 0
-		self.acceptedVal = "0"
+		
+		""" These are proposer specific variables """
+		self.pballotNum = 0
 		self.highestBallot = 0
 		self.highestValue = "0"
 		self.currentValue = "0"
-		self.pInstance = 0
-		self.aInstance = 0
 		self.acks = 0
 		self.accepts = 0
+
+		""" These are acceptor specific variables """
+		self.aballotNum = 0
+		self.acceptedNum = 0
+		self.acceptedVal = "0"
+
+		self.instance = 0
 		self.quorum = 1
 		self.event = threading.Event()
 
@@ -112,45 +117,64 @@ class Node(threading.Thread):
 			self.event.wait()
 			self.q.task_done()
 
+	def reset(self):
+                """ These are proposer specific variables """
+                self.pballotNum = 0
+                self.highestBallot = 0
+                self.highestValue = "0"
+                self.currentValue = "0"
+                self.acks = 0
+                self.accepts = 0
+
+                """ These are acceptor specific variables """
+                self.aballotNum = 0
+                self.acceptedNum = 0
+                self.acceptedVal = "0"
+
 	def send_prepare(self):
-		self.ballotNum += 1
-		msg = "PREPARE: "+str(self.ballotNum)
+		self.pballotNum += 1
+		msg = "PREPARE: {0} {1}".format(self.instance, self.pballotNum)
 		self.messenger.send(msg)
 	
-	def send_promise(self, b):
-		if b >= self.aBallotNum:
-			self.aBallotNum = b
-		msg = "ACK {0} {1} {2}".format(b, self.aInstance, self.acceptedVal)
-		self.messenger.send(msg)
+	def send_promise(self, instance, pBallotNum):
+		if instance != self.instance:
+			print "expected instance {0}; actual instance: {1}".format(instance, self.instance)
+		elif pBallotNum >= self.aballotNum:
+			self.aballotNum = pBallotNum
+			msg = "ACK {0} {1} {2} {3}".format(self.instance, self.aballotNum, self.acceptedNum, self.acceptedVal)
+			self.messenger.send(msg)
 	
-	def recieve_ack(self, BallotNum, instance, val):
-		if( BallotNum == self.ballotNum):
+	def recieve_ack(self, instance, aBallotNum, acceptedNum, acceptedVal):
+		if( instance == self.instance):
 			self.acks += 1
-			self.pInstance = instance
-			self.highestValue = val
+			
+			if self.highestBallot < acceptedNum:
+				self.highestBallot = acceptedNum
+				self.highestValue = acceptedVal
+
 			if(self.acks >= self.quorum):
 				if self.highestValue != "0":
 					self.currentValue = str(self.highestValue)
-				self.isLeader = True
-				self.acks = 0
-				self.send_accept(BallotNum, self.pInstance, self.currentValue)
+				self.send_accept(self.instance, aBallotNum, self.currentValue)
 
-	def send_accept(self,N, I, V):
-		msg = "ACCEPT {0} {1} {2}".format(N, I, V)
+	def send_accept(self, instance, ballotNum, value):
+		msg = "ACCEPT {0} {1} {2}".format(instance, ballotNum, value)
 		self.messenger.send(msg)
 	
-	def recieve_accept(self, N, I, V):
+	def recieve_accept(self, instance, ballotNum, value):
 		if self.accepts >= self.quorum:
-			msg = "DECIDE {0}".format(V)
+			msg = "DECIDE {0} {1}".format(instance, value)
 			self.messenger.send(msg)
 		else:
 			self.accepts += 1
-			self.send_accept(N,I,V)
+			self.send_accept(instance, ballotNum, value)
 
-	def recieve_decide(self, V):
-		print "Decided on value {0}".format(V)
+	def recieve_decide(self, instance, value):
+		print "Decided on value {0} in round {1}".format(value, instance)
 		self.event.set()
-		self.currentValue = V
+		self.currentValue = value
+		self.instance = instance + 1
+		self.reset()
 
 if __name__ == '__main__':
 
@@ -158,6 +182,4 @@ if __name__ == '__main__':
     port = 0
     n = Node(addr, port)
     n.q.put("deposit100")
-    n.q.put("deposit200")
     n.start()
-    n.q.put("withdraw400")
