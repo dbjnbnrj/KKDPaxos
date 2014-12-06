@@ -193,7 +193,6 @@ class Node(threading.Thread):
 		self.currentValue = v
 
 if __name__ == '__main__':
-
     addr = 'localhost'
     port = 0
     n = Node(addr, port)
