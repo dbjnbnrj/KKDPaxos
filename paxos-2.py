@@ -4,7 +4,7 @@ import sys
 import socket
 from Queue import Queue
 
-SERVERS = ['172.30.0.251', '172.30.0.238']
+SERVERS = ['172.30.0.85']
 
 class Messenger:
 	def __init__(self, owner):
@@ -50,18 +50,15 @@ class PaxosServer(threading.Thread):
                         connection, client_address = self.sock.accept()
                         try:
                                 print >>sys.stderr, 'client connected:', client_address
-                                while True:
-                                        data = connection.recv(4096)
-                                        print >>sys.stderr, 'received "%s"' % data
-                                        if data:
-						self.node.messenger.recv(data)
-                                        else:
-                                                break
-                        finally:
-                                connection.close()
+                                data = connection.recv(4096)
+                                print >>sys.stderr, 'received "%s"' % data
+                                if data:
+					self.node.messenger.recv(data)
+
+			finally:
+				print "Closing connection"
 
 class PaxosClient(threading.Thread):
-
 	def __init__(self, address, message):
 		self.address = address
 		self.message = message
@@ -72,7 +69,7 @@ class PaxosClient(threading.Thread):
 		# Connect the socket to the port on the server given by the caller
 		print >>sys.stderr, 'connecting to %s port %s' % self.address
 
-		self.sock.connect(('172.30.0.251',10000))
+		self.sock.connect(self.address)
 		
 		try:
     			print >>sys.stderr, 'sending "%s"' % self.message
