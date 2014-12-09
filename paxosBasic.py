@@ -166,9 +166,10 @@ class Messenger(SocketServer.TCPServer):
 
     def _receive(self, msg):
         """ Create a new thread, then dispatch to corresponding functions in PaxosNode. """
-        tokens = msg.split(',')
+        print "Recieved ", msg
+	tokens = msg.split(',')
         msgType = tokens[0]
-       
+         
         if(msgType == Messenger.PREPARE):
             # prepare
             senderID, roundIdx, bPid, bNum, val = [int(v) for v in tokens[1:5]]+[tokens[5]]
@@ -233,6 +234,7 @@ class Messenger(SocketServer.TCPServer):
         Return True if communication is successful.
         Otherwise, return False.
         """
+	print "Is sending something to {0} ... ".format(targetID),msg
         if(not self._active):
             return False
         
