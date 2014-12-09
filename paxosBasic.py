@@ -376,6 +376,8 @@ class PaxosNode():
         majorityActive = True
         nAttempt = 0
         while(not isDecided):
+            if(aquiredRound == None):
+                nAttempt = 0
             nAttempt += 1
             # Start propose
             majorityActive, aquiredRound = self._propose(aquiredRound, val)
