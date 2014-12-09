@@ -530,8 +530,8 @@ class PaxosNode():
         """
         self._paxosLock.acquire()
 
-        print "Decide at round", roundIdx, ",val:" val
         if(self._checkRound(pid, roundIdx)):
+            print "Decide at round", roundIdx, ",val:", val
             self._processConcensus(val)
 
         self._paxosLock.release()
