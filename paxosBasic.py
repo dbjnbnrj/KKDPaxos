@@ -219,10 +219,23 @@ class Messenger(SocketServer.TCPServer):
 
         """
         nActiveServers = 0
+
+        resultQ = Queue.Queue()
         for targetID in range(gb.N_NODE):
-            noError = self._send(targetID, msg)
+            t=threading.Thread(target=self._threadingSend, args=(targetID, msg, resultQ))
+            t.start()
+        
+        for dummy in range(gb.N_NODE):
+            noError = resultQ.get()
             if(noError):
                 nActiveServers += 1
+            if(nActiveServers >= gb.MAJORITY):
+                break
+
+        #for targetID in range(gb.N_NODE):
+        #    noError = self._send(targetID, msg)
+        #    if(noError):
+        #        nActiveServers += 1
 
         return nActiveServers >= gb.MAJORITY
 
@@ -254,6 +267,35 @@ class Messenger(SocketServer.TCPServer):
             sock.close()
 
         return noError
+
+    def _threadingSend(self, targetID, msg, resultQ):
+        """ Send a message to target server. 
+        
+        _send() -> True/False
+
+        Return True if communication is successful.
+        Otherwise, return False.
+        """
+	print "Is sending something to {0} ... ".format(targetID),msg
+        if(not self._active):
+            return False
+        
+        noError = True
+        # Create a socket (SOCK_STREAM means a TCP socket)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        
+        # Get target address
+        address = (gb.ADDRESS[targetID].ip, gb.ADDRESS[targetID].port)
+        try:
+            # Connect to server and send data
+            sock.connect(address)
+            sock.sendall(msg)
+        except socket.error:
+            noError = False 
+        finally:
+            sock.close()
+
+        resultQ.put( noError)
 
 
 class PaxosNode():
