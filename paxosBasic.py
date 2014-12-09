@@ -39,7 +39,9 @@ class PaxosRequestHandler(SocketServer.BaseRequestHandler):
         data = self.request.recv(1024).strip()
         
         # let its server process it
-        self.server._receive(data)
+        t = threading.Thread(target=self.server._receive, args=(data,)) 
+        t.start()
+        #self.server._receive(data)
 
 
 class Messenger(SocketServer.TCPServer):
