@@ -168,7 +168,7 @@ class Messenger(SocketServer.TCPServer):
 
     def _receive(self, msg):
         """ Create a new thread, then dispatch to corresponding functions in PaxosNode. """
-        print "Recieved ", msg
+        #print "Recieved ", msg
 	tokens = msg.split(',')
         msgType = tokens[0]
          
@@ -249,7 +249,7 @@ class Messenger(SocketServer.TCPServer):
         Return True if communication is successful.
         Otherwise, return False.
         """
-	print "Is sending something to {0} ... ".format(targetID),msg
+        #print "Is sending something to {0} ... ".format(targetID),msg
         if(not self._active):
             return False
         
@@ -278,7 +278,7 @@ class Messenger(SocketServer.TCPServer):
         Return True if communication is successful.
         Otherwise, return False.
         """
-	print "Is sending something to {0} ... ".format(targetID),msg
+        #print "Is sending something to {0} ... ".format(targetID),msg
         if(not self._active):
             return False
         
@@ -463,6 +463,7 @@ class PaxosNode():
         Otherwise, update ballot number and send promise back.
         """
         self._paxosLock.acquire()
+        print "Receive prepare at round", roundIdx
         if(self._checkRound(pid, roundIdx, isPrepare=True)):
             # React if received ballot number is greater or equal than current one
             if(ballotNum >= self._aBallotNum):
@@ -529,6 +530,7 @@ class PaxosNode():
         """
         self._paxosLock.acquire()
 
+        print "Decide at round", roundIdx, ",val:" val
         if(self._checkRound(pid, roundIdx)):
             self._processConcensus(val)
 
