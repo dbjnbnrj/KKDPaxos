@@ -373,8 +373,10 @@ class PaxosNode():
         
         aquiredRound = None
         isDecided = False
-        majorityActive = True 
+        majorityActive = True
+        nAttempt = 0
         while(not isDecided):
+            nAttempt += 1
             # Start propose
             majorityActive, aquiredRound = self._propose(aquiredRound, val)
             if(not majorityActive):
@@ -383,7 +385,7 @@ class PaxosNode():
             # Check consensus result
             try:
                 while(True):
-                    timeout = 2+10*random.random()
+                    timeout = 8*((2**nAttempt)*random.random())
                     resultRound, consensus = self._consensusQ.get(timeout=timeout)
                     if(resultRound == aquiredRound):
                         if(val in consensus):
